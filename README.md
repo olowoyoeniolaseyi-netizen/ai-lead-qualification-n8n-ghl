@@ -2,8 +2,6 @@
 
 A lead-to-booking automation: a lead fills in a GoHighLevel form, n8n cleans and validates the data, an LLM scores the lead and drafts a reply, a human approves in Slack, and only then does the contact get tagged in the CRM. Every failure path ends in an alert instead of silently passing bad data along.
 
-> **Status:** working end to end on test data. No client results are claimed. See [Known limitations](#known-limitations).
-
 ## How it works
 
 ```mermaid
@@ -45,7 +43,7 @@ flowchart TD
 |---|---|---|
 | 401 | Bad or expired credentials | No retry, alert, rotate credential |
 | 403 | Missing permission (scope) | No retry, alert, add scope |
-| 400 / 422 | Request body rejected | No retry, log body and error, fix mapping |
+| 400 | Request body rejected | No retry, log body and error, fix mapping |
 | 429 | Rate limit | Batch and retry with a wait |
 | 503 | Temporary overload | Retry with a wait, alert if retries run out |
 
