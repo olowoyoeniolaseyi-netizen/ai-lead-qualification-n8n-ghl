@@ -87,7 +87,7 @@ Use pinned webhook data for repeatable tests and unpin before real submissions.
 - Writing consent time and source back to GHL custom fields is built but not yet confirmed working.
 - No real SMS is sent, and no A2P 10DLC campaign has been registered. The SMS step is a placeholder.
 - The Gemini free tier has daily and per-minute limits.
-- All results shown come from test data.
+  
 
 ## Security
 
