@@ -1,0 +1,840 @@
+{
+  "name": "GHL-n8n copy 2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ghl-lead",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -1504,
+        -352
+      ],
+      "id": "c98ddb8e-7378-499a-917e-a72a5a49dd9a",
+      "name": "Webhook",
+      "webhookId": "bfdd3800-af4c-4392-af9a-04dca7be7e8a"
+    },
+    {
+      "parameters": {
+        "url": "=https://YOUR_WEBHOOK_URL",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -1744,
+        336
+      ],
+      "id": "f8b844de-2e01-4ae9-acf4-4d481f11f5c0",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "pXshlrYeK2MhqkR3",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Webhook').item.json.body.id }}/tags",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tags: ['ai-' + $('Parse AI Output').item.json.category] }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        288,
+        -352
+      ],
+      "id": "50d9e499-c098-411c-9b78-89d56ba3bbf6",
+      "name": "HTTP Request1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GcTdQmTQchrLio75",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return Array.from({ length: 150 }, () => ({ json: { id: $json.contact.id } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1472,
+        336
+      ],
+      "id": "cbd08979-bcfa-4e06-9806-f01c1ff5f2a3",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const DEFAULT_CC = '1'; // change to '234' for Nigerian numbers\n\nreturn $input.all().map(item => {\n  const d = item.json.body ?? item.json;\n  const c = d.customData ?? {};\n\n  const first = (c.first_name || d.first_name || '').trim();\n  const last = (c.last_name || d.last_name || '').trim();\n  const email = (c.email || d.email || '').trim().toLowerCase();\n\n  // Normalize phone to +countrycode format\n  const raw = (c.phone || d.phone || '').trim();\n  let digits = raw.replace(/\\D/g, '');\n  if (raw.startsWith('+')) {\n    // already international, keep as is\n  } else if (digits.startsWith('0')) {\n    digits = DEFAULT_CC + digits.slice(1);\n  } else if (digits.length === 10) {\n    digits = DEFAULT_CC + digits;\n  }\n  const phone = digits ? '+' + digits : '';\n\n  // SMS consent: any real answer counts as ticked; empty or negative values do not\n  const consentRaw = String(c.sms_consent || d.sms_consent || '').trim().toLowerCase();\n  const consent = consentRaw !== '' && !['false', 'no', 'null', 'undefined', 'unchecked'].includes(consentRaw);\n\n  // Hard problems block the lead; soft ones only warn\n  const issues = [];\n  const warnings = [];\n  if (!first) issues.push('missing first name');\n  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) issues.push('invalid email');\n  if (phone.length < 11) warnings.push('missing or invalid phone');\n  if (!consent) warnings.push('no SMS consent');\n\n  const message = (c.message || d.message ||\n    'Hi, I need help automating follow-ups for my small gym. How much does it cost and how soon can we start?'\n  ).trim();\n\n  return {\n    json: {\n      id: d.id || c.id || c.contact_id || d.contact_id,\n      first_name: first,\n      last_name: last,\n      email,\n      phone,\n      message,\n      consent,\n      consent_time: new Date().toISOString(),\n      consent_source: 'ghl-lead-form',\n     \n      issues,\n      warnings,\n      is_clean: issues.length === 0\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1280,
+        -352
+      ],
+      "id": "4a498b06-323a-4840-8722-0ccfba577ffc",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "1281a210-1414-41a8-89f7-e04b9d3a2db9",
+              "leftValue": "={{ $json.is_clean }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        -1056,
+        -352
+      ],
+      "id": "c79c1763-a462-4293-ad44-472a7d0b7772",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "olowoyoeniolaseyi",
+          "mode": "username"
+        },
+        "text": "=⚠️ Lead failed validation Contact ID: {{ $json.id }} Issues: {{ $json.issues.join(', ') }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        -832,
+        -256
+      ],
+      "id": "83c13348-555a-48af-b3ca-8c460f6606eb",
+      "name": "Send a message",
+      "webhookId": "087364a4-590b-4f9f-8751-d08352560461",
+      "credentials": {
+        "slackApi": {
+          "id": "slack",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  systemInstruction: { parts: [{ text: 'You qualify inbound leads for a small service business. Respond with a JSON object: {\"score\": integer 1-10, \"category\": \"hot\" | \"warm\" | \"cold\", \"reason\": string under 25 words, \"suggested_reply\": string under 60 words}. Judge only from the information given. If the enquiry is vague, score lower and say so.' }] },\n  contents: [{ role: 'user', parts: [{ text: `Name: ${$json.first_name}\\nEnquiry: ${$json.message}` }] }],\n  generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 2048 }\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -832,
+        -448
+      ],
+      "id": "9ca5c1d6-b785-4659-8c6e-b3cec56efc3d",
+      "name": "HTTP Request2",
+      "retryOnFail": false,
+      "maxTries": 4,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "KW6g6O1X001EZhQr",
+          "name": "Gemini"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst lead = $('HTTP Request2').first().json; // your cleaning node's exact name\n\nconst text = res.candidates?.[0]?.content?.parts?.[0]?.text ?? '';\nlet parsed;\ntry {\n  parsed = JSON.parse(text.replace(/```json|```/g, '').trim());\n} catch (e) {\n  return [{ json: { ...lead, ai_ok: false, ai_error: 'unparseable output', raw: text } }];\n}\n\nconst okCategory = ['hot', 'warm', 'cold'].includes(parsed.category);\nconst okScore = Number.isInteger(parsed.score) && parsed.score >= 1 && parsed.score <= 10;\nif (!okCategory || !okScore || !parsed.reason || !parsed.suggested_reply) {\n  return [{ json: { ...lead, ai_ok: false, ai_error: 'schema mismatch', raw: text } }];\n}\n\nreturn [{ json: {\n  ...lead,\n  ai_ok: true,\n  score: parsed.score,\n  category: parsed.category,\n  reason: parsed.reason,\n  suggested_reply: parsed.suggested_reply,\n  input_tokens: res.usageMetadata?.promptTokenCount,\n  output_tokens: res.usageMetadata?.candidatesTokenCount\n} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -608,
+        -448
+      ],
+      "id": "240f7981-a515-4ac1-89f3-f79f971164a5",
+      "name": "Parse AI Output"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "3f311281-436b-4bcd-bb46-8b949f399d64",
+              "leftValue": "={{ $json.ai_ok }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        -384,
+        -352
+      ],
+      "id": "43376e33-6d18-4a1a-9da0-2582c8438413",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "sendAndWait",
+        "user": {
+          "__rl": true,
+          "value": "olowoyoeniolaseyi",
+          "mode": "username"
+        },
+        "message": "=🔔 New lead needs your approval\n\nFirst Name: {{ $('Webhook').item.json.body.first_name }}\nLast Name: {{ $('Webhook').item.json.body.last_name }}\nEmail: {{ $('Webhook').item.json.body.email }}\nPhone: {{ $json.phone || 'not provided' }}\n\nEnquiry: {{ $json.message }}\n\nScore: {{ $json.score }}/10 ({{ $json.category }})\nWhy: {{ $json.reason }}\n\nDraft reply:\n{{ $json.suggested_reply }}\n\nApprove to tag this lead in GHL.",
+        "approvalOptions": {
+          "values": {
+            "approvalType": "double"
+          }
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        -160,
+        -352
+      ],
+      "id": "cde8252f-1da9-4a66-9da0-9d77e2b3fe3e",
+      "name": "Send message and wait for response",
+      "webhookId": "2cdb0003-a011-4c8a-a227-7344012d9d7c",
+      "credentials": {
+        "slackApi": {
+          "id": "slack",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "3c021fe3-7aa6-485d-8923-26a26af38ca6",
+              "leftValue": "={{ $json.data.approved }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        64,
+        -352
+      ],
+      "id": "c64fd784-167d-4aae-843d-361c6bea5842",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "documentId",
+          "mode": "list",
+          "cachedResultName": "AI Lead Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/194KOvOQniq492R63KgKWhSsO8Va24KmndOD6Q3UIzpA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/194KOvOQniq492R63KgKWhSsO8Va24KmndOD6Q3UIzpA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $now.toISO() }}",
+            "contact_id": "={{ $('Webhook').item.json.body.id }}",
+            "category": "={{ $json.category }}",
+            "score": "={{ $json.score }}",
+            "input_tokens": "={{ $json.input_tokens }}",
+            "output_tokens": "={{ $json.output_tokens }}",
+            "model": "gemini-2.5-flash",
+            "status": "Approved"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "contact_id",
+              "displayName": "contact_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "score",
+              "displayName": "score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "input_tokens",
+              "displayName": "input_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "output_tokens",
+              "displayName": "output_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "model",
+              "displayName": "model",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -384,
+        -544
+      ],
+      "id": "32619bf2-fb95-47bb-b5ac-64ac21c5c871",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "eFuTfO64xr78pdOn",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "0b94f3b7-fe37-4656-85df-1c9eada3c6d2",
+              "leftValue": "={{ $('Code in JavaScript1').item.json.consent }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        512,
+        -352
+      ],
+      "id": "7f00369b-a33f-4ea2-a36a-0657d5c87c03",
+      "name": "If3"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        -256
+      ],
+      "id": "61bbfca9-326e-4210-bbff-4cdd759e9be5",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "olowoyoeniolaseyi",
+          "mode": "username"
+        },
+        "text": "=No SMS consent for {{ $('Webhook').item.json.body.first_name }} , ( {{ $('Webhook').item.json.body.id }} ). SMS skipped.",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.7,
+      "position": [
+        736,
+        -448
+      ],
+      "id": "688d465c-8be3-4df7-909a-79a1a837783b",
+      "name": "Send a message1",
+      "webhookId": "41a86c67-bffe-4cc8-986f-281b0e257160",
+      "credentials": {
+        "slackApi": {
+          "id": "slack",
+          "name": "Slack account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://services.leadconnectorhq.com/contacts/{{ $('Webhook').item.json.body.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "=json",
+        "specifyBody": "json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "={{ JSON.stringify({\n  customFields: [\n    { id: '$json.customFields[3].id', field_value: $('Code in JavaScript1').item.json.consent_time },\n    { id: '$json.customFields[0].id', field_value: $('Code in JavaScript1').item.json.consent_source }\n  ]\n\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        -256
+      ],
+      "id": "ef8c1475-3fc2-4a66-a8b5-22cd44d7fac6",
+      "name": "HTTP Request3",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GcTdQmTQchrLio75",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://services.leadconnectorhq.com/locations/KaLIdZqu2PKpWA9gspXU/customFields",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Version",
+              "value": "2021-07-28"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        736,
+        -256
+      ],
+      "id": "fbc92427-d4e8-4a1d-a162-1a7aa0a70f94",
+      "name": "HTTP Request4",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "GcTdQmTQchrLio75",
+          "name": "Header Auth account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "ovx4x8i1.rpcl.app",
+            "user-agent": "axios/0.21.4",
+            "content-length": "274",
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, br",
+            "cdn-loop": "cloudflare; loops=1",
+            "cf-connecting-ip": "35.232.31.187",
+            "cf-ipcountry": "US",
+            "cf-ray": "a5570dbb2f9d0426-YYZ",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "content-type": "application/json",
+            "x-forwarded-for": "35.232.31.187, 172.71.120.78",
+            "x-forwarded-host": "ovx4x8i1.rpcl.app",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "18959ff16c52",
+            "x-real-ip": "172.71.120.78"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "id": "xxxxxxxxxxxxx",
+            "first_name": "Angela",
+            "last_name": "Smith",
+            "email": "@gmail.com",
+            "phone": "",
+            "address": "null",
+            "sms_consent": "I agree to receive text messages Strength Studio about my enquiry. Reply STOP to opt out. Message and data rates may apply."
+          },
+          "webhookUrl": "https://ovx4x8i1.rpcl.app/webhook-test/ghl-lead",
+          "executionMode": "test"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Output": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Send message and wait for response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Send message and wait for response": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        []
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "If3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If3": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "804e4355-017d-4640-933d-345f17e06893",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7b4c7c50c7ef3acc32170bc74278fb5474708a1c4cc183f907f7e88d7dc45920"
+  },
+  "nodeGroups": [],
+  "id": "wgrFSC6TjHlmCSS0",
+  "tags": []
+}
